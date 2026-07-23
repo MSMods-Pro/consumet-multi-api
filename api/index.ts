@@ -110,6 +110,46 @@ app.get('/:category', (req: Request, res: Response) => {
   res.json({ category: req.params.category, providers: Object.keys(lookup) });
 });
 
+// Hitting just /:category/:provider (no query/id yet) — return usage instead of 404
+app.get('/:category/:provider', (req: Request, res: Response) => {
+  const { category, provider } = req.params;
+  const lookup = CATEGORY_LOOKUP[category];
+  if (!lookup) {
+    return res
+      .status(404)
+      .json({ message: `Unknown category "${category}". Valid: ${Object.keys(CATEGORIES).join(', ')}` });
+  }
+  const entry = lookup[provider.toLowerCase()];
+  if (!entry) {
+    return res.status(404).json({
+      message: `Unknown provider "${provider}" for category "${category}". Available: ${Object.keys(lookup).join(', ') || '(none)'}`,
+    });
+  }
+
+  const routes: Record<string, string> = {
+    search: `/${category}/${provider}/:query`,
+  };
+  if (category === 'anime') {
+    routes.info = `/${category}/${provider}/info/:id`;
+    routes.watch = `/${category}/${provider}/watch/:episodeId?server=&type=sub|dub`;
+    routes.servers = `/${category}/${provider}/servers/:episodeId`;
+  } else if (category === 'manga') {
+    routes.info = `/${category}/${provider}/info/:id`;
+    routes.read = `/${category}/${provider}/read/:chapterId`;
+  } else if (category === 'movies') {
+    routes.info = `/${category}/${provider}/info/:id`;
+    routes.watch = `/${category}/${provider}/watch/:episodeId?server=`;
+    routes.servers = `/${category}/${provider}/servers/:episodeId`;
+  }
+
+  res.json({
+    category,
+    provider: entry.className,
+    message: `Give a search query to get started, e.g. /${category}/${provider}/naruto`,
+    routes,
+  });
+});
+
 // -- Search (works for every provider in every category) --------------------
 
 app.get(
