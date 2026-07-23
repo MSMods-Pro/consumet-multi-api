@@ -5,7 +5,7 @@ import { parsePostInfo } from '../../utils';
 const s = async () => {};
 
 class getComics extends ComicParser {
-  override readonly baseUrl = 'https://getcomics.org/';
+  override readonly baseUrl = 'https://getcomics.info/';
   override readonly name = 'GetComics';
 
   override readonly logo =

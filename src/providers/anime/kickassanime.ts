@@ -16,7 +16,7 @@ import * as crypto from 'crypto';
 
 class KickAssAnime extends AnimeParser {
   override readonly name = 'KickAssAnime';
-  protected override baseUrl = 'https://kaa.lt';
+  protected override baseUrl = 'https://kickass-anime.ru';
   protected override logo = 'https://kaa.lt/img/logo.png';
   protected override classPath = 'ANIME.KickAssAnime';
 

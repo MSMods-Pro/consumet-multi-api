@@ -13,7 +13,7 @@ import { AxiosResponse } from 'axios';
 
 class AsuraScans extends MangaParser {
   override readonly name = 'AsuraScans';
-  protected override baseUrl = 'https://asurascans.com';
+  protected override baseUrl = 'https://asuracomic.net';
   protected override logo = 'https://asurascans.com/images/logo.png';
   protected override classPath = 'MANGA.AsuraScans';
 

@@ -14,7 +14,7 @@ import { MegaCloud, VideoStr, MixDrop, VidCloud, Voe } from '../../extractors';
 
 class SFlix extends MovieParser {
   override readonly name = 'SFlix';
-  protected override baseUrl = 'https://sflix.ps';
+  protected override baseUrl = 'https://sflix.to';
   protected override logo =
     'https://img.sflix.to/xxrz/100x100/100/a2/33/a233d4c4a1426ca77ec1d34deec62f71/a233d4c4a1426ca77ec1d34deec62f71.png';
   protected override classPath = 'MOVIES.SFlix';
