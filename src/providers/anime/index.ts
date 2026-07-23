@@ -1,5 +1,6 @@
 import AnimePahe from './animepahe';
 import Hianime from './hianime';
+import HianimeAd from './hianimead';
 import AnimeSaturn from './animesaturn';
 import AnimeKai from './animekai';
 import KickAssAnime from './kickassanime';
@@ -8,6 +9,7 @@ import AnimeSama from './animesama';
 
 export default {
   Hianime,
+  HianimeAd,
   AnimePahe,
   AnimeKai,
   KickAssAnime,
