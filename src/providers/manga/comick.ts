@@ -1,0 +1,271 @@
+import axios, { AxiosError } from 'axios';
+import { IMangaChapterPage, IMangaInfo, IMangaResult, ISearch, MangaParser, MediaStatus } from '../../models';
+import { load } from 'cheerio';
+
+class ComicK extends MangaParser {
+  override readonly name = 'ComicK';
+  protected override baseUrl = 'https://comick.art';
+  protected override logo = 'https://th.bing.com/th/id/OIP.fw4WrmAoA2PmKitiyMzUIgAAAA?pid=ImgDet&rs=1';
+  protected override classPath = 'MANGA.ComicK';
+
+  private readonly apiUrl = 'https://comick.art/api';
+  public referer = 'https://comick.art';
+
+  private _axios() {
+    return axios.create({
+      baseURL: this.apiUrl,
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)',
+        Referer: this.referer,
+      },
+    });
+  }
+
+  /**
+   * @description Fetches info about the manga
+   * @param mangaId Comic slug
+   * @returns Promise<IMangaInfo>
+   */
+  override fetchMangaInfo = async (mangaId: string): Promise<IMangaInfo> => {
+    try {
+      const data: Comic = await this.getComicData(mangaId);
+
+      const links = Object.values(data.links ?? []).filter(link => link !== null);
+
+      const mangaInfo: IMangaInfo = {
+        id: data.slug,
+        title: data.title,
+        altTitles: data.md_titles ? data.md_titles.map(title => title.title) : [],
+        description: data.desc,
+        genres: data.md_comic_md_genres?.map(genre => genre.md_genres.name),
+        status: data.status ?? 0 === 0 ? MediaStatus.ONGOING : MediaStatus.COMPLETED,
+        image: data.default_thumbnail,
+        malId: data.links?.mal,
+        links: links,
+        chapters: [],
+      };
+
+      const allChapters: ChapterData[] = await this.fetchAllChapters(mangaInfo.id, 1);
+      for (const chapter of allChapters) {
+        mangaInfo.chapters?.push({
+          id: `${mangaInfo.id}/${chapter.hid}-chapter-${chapter.chap}-${chapter.lang}`,
+          title: chapter.title ?? chapter.chap,
+          chapterNumber: chapter.chap,
+          volumeNumber: chapter.vol,
+          releaseDate: chapter.created_at,
+          lang: chapter.lang,
+        });
+      }
+
+      return mangaInfo;
+    } catch (err) {
+      if ((err as AxiosError).code == 'ERR_BAD_REQUEST')
+        throw new Error(`[${this.name}] Bad request. Make sure you have entered a valid query.`);
+
+      throw new Error((err as Error).message);
+    }
+  };
+
+  /**
+   *
+   * @param chapterId Chapter ID '{slug}/{hid}-chapter-{chap}-{lang}'
+   * @returns Promise<IMangaChapterPage[]>
+   */
+  override fetchChapterPages = async (chapterId: string): Promise<IMangaChapterPage[]> => {
+    try {
+      const data = await this._axios().get(`/comics/${chapterId}`);
+
+      const pages: { img: string; page: number }[] = [];
+      data.data.chapter.images.map((image: { url: string }, index: number) => {
+        pages.push({
+          img: image.url,
+          page: index,
+        });
+      });
+
+      return pages;
+    } catch (err) {
+      throw new Error((err as Error).message);
+    }
+  };
+
+  // also need to implement and advanced search with filters
+  /**
+   * @param query search query
+   * @param page page number (default: 1)
+   * @param limit limit of results to return (default: 20) (max: 100) (min: 1)
+   */
+  override search = async (query: string, cursor?: string): Promise<Search<IMangaResult>> => {
+    try {
+      const req = await this._axios().get(`/search?q=${encodeURIComponent(query)}&cursor=${cursor}`);
+
+      const results: Search<IMangaResult> = {
+        results: [],
+        prev_cursor: req.data.prev_cursor,
+        next_cursor: req.data.next_cursor,
+      };
+
+      const data: SearchResult[] = await req.data.data;
+
+      for (const manga of data) {
+        results.results.push({
+          id: manga.slug,
+          title: manga.title ?? manga.slug,
+          altTitles: manga.md_titles ? manga.md_titles.map(title => title.title) : [],
+          image: manga.default_thumbnail,
+        });
+      }
+
+      return results;
+    } catch (err) {
+      throw new Error((err as Error).message);
+    }
+  };
+
+  private fetchAllChapters = async (hid: string, page: number): Promise<any[]> => {
+    if (page <= 0) {
+      page = 1;
+    }
+    const req = await this._axios().get(`/comics/${hid}/chapter-list?page=${page}`);
+    return req.data.data;
+  };
+
+  private getComicData = async (mangaId: string): Promise<Comic> => {
+    const req = await this._axios().get(`${this.baseUrl}/comic/${mangaId}`);
+    const $ = load(req.data);
+
+    return JSON.parse($("script[id='comic-data']").text()) as Comic;
+  };
+}
+
+// (async () => {
+//   const md = new MangaDex();
+//   const search = await md.search('solo leveling');
+//   const manga = await md.fetchMangaInfo(search.results[0].id);
+//   const chapterPages = await md.fetchChapterPages(manga.chapters![0].id);
+//   console.log(chapterPages);
+// })();
+
+export default ComicK;
+
+interface Search<T> {
+  results: T[];
+  next_cursor: string;
+  prev_cursor?: string;
+}
+
+interface SearchResult {
+  title: string;
+  id: number;
+  slug: string;
+  rating: string;
+  rating_count: number;
+  follow_count: number;
+  user_follow_count: number;
+  content_rating: string;
+  demographic: number;
+  md_titles: [MDTitle];
+  md_covers: Array<Cover>;
+  default_thumbnail: string;
+  highlight: string;
+}
+
+interface Cover {
+  vol: any;
+  w: number;
+  h: number;
+  b2key: string;
+}
+
+interface MDTitle {
+  title: string;
+}
+
+interface Comic {
+  hid: string;
+  title: string;
+  country: string;
+  status: number;
+  links: ComicLinks;
+  last_chapter: any;
+  chapter_count: number;
+  demographic: number;
+  hentai: boolean;
+  user_follow_count: number;
+  follow_rank: number;
+  comment_count: number;
+  follow_count: number;
+  desc: string;
+  parsed: string;
+  slug: string;
+  mismatch: any;
+  year: number;
+  bayesian_rating: any;
+  rating_count: number;
+  content_rating: string;
+  translation_completed: boolean;
+  relate_from: Array<any>;
+  mies: any;
+  md_titles: Array<ComicTitles>;
+  md_comic_md_genres: Array<ComicGenres>;
+  mu_comics: {
+    licensed_in_english: any;
+    mu_comic_categories: Array<ComicCategories>;
+  };
+  default_thumbnail: string;
+  md_covers: Array<Cover>;
+  iso639_1: string;
+  lang_name: string;
+  lang_native: string;
+}
+
+interface ComicLinks {
+  al: string;
+  ap: string;
+  bw: string;
+  kt: string;
+  mu: string;
+  amz: string;
+  cdj: string;
+  ebj: string;
+  mal: string;
+  raw: string;
+}
+
+interface ComicTitles {
+  title: string;
+}
+
+interface ComicGenres {
+  md_genres: {
+    name: string;
+    type: string | null;
+    slug: string;
+    group: string;
+  };
+}
+
+interface ComicCategories {
+  mu_categories: {
+    title: string;
+    slug: string;
+  };
+  positive_vote: number;
+  negative_vote: number;
+}
+
+interface ChapterData {
+  id: number;
+  chap: string;
+  title: string;
+  vol: string;
+  slug: string | null;
+  lang: string;
+  created_at: string;
+  updated_at: string;
+  up_count: number;
+  down_count: number;
+  group_name: string[];
+  hid: string;
+  md_groups: string[];
+}
