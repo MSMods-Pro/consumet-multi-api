@@ -67,7 +67,7 @@
     "got": "^11.8.6",
     "got-scraping": "^3.2.13",
     "husky": "^9.1.1",
-    "node-fetch": "^2.7.0",
+    "node-fetch": "^3.3.2",
     "yarn": "^1.22.22"
   },
   "devDependencies": {
